@@ -45,7 +45,8 @@
         "keys": []
     },
     "remove_constant_feature":{
-        "debug": false
+        "debug": false,
+        "autoremove": false
     },
     "feature_to_class": {
         "keys": ["Classes"],

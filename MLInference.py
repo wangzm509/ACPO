@@ -12,6 +12,7 @@ from sklearn.feature_selection import *
 import numpy as np
 import os
 import re
+import torch
 import tensorflow as tf
 
 
@@ -56,10 +57,22 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 field_name_set = {
     "modelname", "features", "outputs", "signature", "modeldirectory",
-    "outputkey", "modelinference"
+    "outputkey", "modelinference", "loadmodeltype"
 }
 
-def get_imported_and_infer(model_dir, signature):
+
+def get_torch_imported_and_infer(model_dir, signature):
+  """
+  Return the imported model and using the
+  given model_dir
+  """
+  model_path = os.path.join(os.path.dirname(__file__), model_dir)
+  torch_model_name = "modelfi.pt"
+  imported = torch.jit.load(model_path + torch_model_name)
+  return (imported, imported)
+
+
+def get_tensorflow_imported_and_infer(model_dir, signature):
   """
   Return the imported model and infer function using the
   given model_dir and signature
@@ -69,7 +82,7 @@ def get_imported_and_infer(model_dir, signature):
   infer = imported.signatures[signature]
   return (imported, infer)
 
-
+  
 def get_field_name(line):
   return line.split('=')[0].strip()
 
@@ -103,7 +116,7 @@ def load_model(model_spec_file):
   lines = f.readlines()
   model_info_dict = {}
   for line in lines:
-    if (line.strip() == ""):
+    if (line.strip() == "" or line.startswith('#')):
       continue
     field_name = get_field_name(line).lower()
     field_value = get_field_value(line)
@@ -129,9 +142,20 @@ def load_model(model_spec_file):
   model_info_dict['outputlist'] = output_list
   model_dir = model_info_dict.get('modeldirectory')
   signature = model_info_dict.get('signature')
-  imported_and_infer = get_imported_and_infer(model_dir, signature)
-  imported = imported_and_infer[0]
-  infer = imported_and_infer[1]
+
+  load_model_type = model_info_dict.get('loadmodeltype')
+  if (load_model_type == "torch"):
+    imported_and_infer = get_torch_imported_and_infer(model_dir, signature)
+    imported = imported_and_infer[0]
+    infer = imported_and_infer[1]
+  elif (load_model_type == "tensorflow"):
+    imported_and_infer = get_tensorflow_imported_and_infer(model_dir, signature)
+    imported = imported_and_infer[0]
+    infer = imported_and_infer[1]
+  else:
+    print("unsupport model type, only support torch and tensorflow")
+    return ()
+
   model_info_dict['imported'] = imported
   model_info_dict['infer'] = infer
   # TODO: use a pickle object to load into the classes_dict automatically (later)
@@ -154,11 +178,11 @@ def load_model(model_spec_file):
 
 
 def create_MLInference(model_inference, model_dir, infer, output_key, classes_dict,
-                       output_name):
+                       output_name, loadmodeltype):
 
   if "FIInference" in model_inference:
     from FIInference import FIInference
-    return FIInference(model_dir, infer, output_key, classes_dict, output_name)
+    return FIInference(model_dir, infer, output_key, classes_dict, output_name, loadmodeltype)
   elif "LUInference" in model_inference:
     from LUInference import LUInference
     return LUInference(model_dir, infer, output_key, classes_dict, output_name)
@@ -169,13 +193,20 @@ def create_MLInference(model_inference, model_dir, infer, output_key, classes_di
 
 class MLInference(ABC):
 
-  def __init__(self, model_dir, infer, output_key, classes_dict, output_names):
+  def __init__(self, model_dir, infer, output_key, classes_dict, output_names, loadmodeltype):
     self.model_dir = model_dir
     self.infer = infer
     self.output_key = output_key
     self.classes_dict = classes_dict
     self.output_names = output_names
     self.features = []
+    self.loadmodeltype = loadmodeltype
+
+  def set_load_model_type(self):
+    self.loadmodeltype = loadmodeltype
+
+  def get_load_model_type(self):
+    return self.loadmodeltype
 
   def runInfer(self):
     return self.inference()
