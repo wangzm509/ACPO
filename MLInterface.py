@@ -28,7 +28,7 @@ class Model:
 
   def __init__(self, num_features, num_outputs, model_inference, feature_pair,
                output_list, signature, model_dir, imported, infer, output_key,
-               classes_dict):
+               classes_dict, loadmodeltype):
     self.num_features = num_features
     self.num_outputs = num_outputs
     self.model_inference = model_inference
@@ -40,6 +40,7 @@ class Model:
     self.infer = infer
     self.output_key = output_key
     self.classes_dict = classes_dict
+    self.loadmodeltype = loadmodeltype
 
 
 def create_named_pipe(name):
@@ -47,7 +48,6 @@ def create_named_pipe(name):
     return 0
   os.mkfifo(name)
   return 1
-
 
 def MLFSM(cmd_pipe, resp_pipe):
   """
@@ -101,13 +101,14 @@ def MLFSM(cmd_pipe, resp_pipe):
                                 model_info_dict.get('imported'),
                                 model_info_dict.get('infer'),
                                 model_info_dict.get('outputkey'),
-                                model_info_dict.get('classesdict'))
+                                model_info_dict.get('classesdict'),
+                                model_info_dict.get('loadmodeltype'))
               model_dict[model_name] = new_model
               inference_dict[model_name] = create_MLInference(
                   new_model.model_inference, new_model.model_dir,
                   new_model.infer, new_model.output_key,
                   new_model.classes_dict,
-                  list(map(lambda o: o[0], new_model.output_list)))
+                  list(map(lambda o: o[0], new_model.output_list)), new_model.loadmodeltype)
               responses.write("Model loaded," + load_result[1] + "\n")
 
           except:
